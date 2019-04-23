@@ -38,6 +38,7 @@ impl SDES {
         (first_shift << 5) | second_shift
     }
 
+    // ignore leading zeros by selecting the last 10 bits
     fn left_rotate(k: u16, n: u8) -> u16 {
         ((k << n) | (k >> (5 - n))) & (2u16.pow(5) - 1)
     }
