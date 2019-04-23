@@ -30,8 +30,16 @@ impl SDES {
         result
     }
 
-    fn circular_left_shift(k: u16, n: u8, length: u8) -> u16 {
-        ((k << n) | (k >> (length - n))) & (2u16.pow(length as u32) - 1)
+    fn circular_left_shift(k: u16, n: u8) -> u16 {
+        let right: u16 = k & (2u16.pow(5) - 1);
+        let left: u16 = k >> 5;
+        let first_shift: u16 = SDES::left_rotate(left, n);
+        let second_shift: u16 = SDES::left_rotate(right, n);
+        (first_shift << 5) | second_shift
+    }
+
+    fn left_rotate(k: u16, n: u8) -> u16 {
+        ((k << n) | (k >> (5 - n))) & (2u16.pow(5) - 1)
     }
 
     fn p10(&self) -> u16 {
@@ -44,11 +52,8 @@ impl SDES {
 
     fn generate_keys(&self) -> (u8, u8) {
         let p10: u16 = self.p10();
-//        println!("p10: {:#b}", p10);
-//        println!("cls1: {:#b}", SDES::circular_left_shift(p10, 1, 10));
-//        println!("cls3: {:#b}", SDES::circular_left_shift(p10, 3, 10));
-        let k1: u8 = SDES::p8(SDES::circular_left_shift(p10, 1, 10));
-        let k2: u8 = SDES::p8(SDES::circular_left_shift(p10, 3, 10));
+        let k1: u8 = SDES::p8(SDES::circular_left_shift(p10, 1));
+        let k2: u8 = SDES::p8(SDES::circular_left_shift(p10, 3));
         (k1, k2)
     }
 
@@ -76,8 +81,8 @@ impl SDES {
         SDES::S1BOX[r][c]
     }
 
-    fn p4(a: u8, b: u8) -> u8 {
-        let k: u8 = (a << 2) | b;
+    fn p4(left: u8, right: u8) -> u8 {
+        let k: u8 = (left << 2) | right;
         SDES::permute(k as u16, vec![1, 3, 2, 0], 4) as u8
     }
 
@@ -87,43 +92,29 @@ impl SDES {
 
     fn f(bits: u8, key: u8) -> u8 {
         let xor: u8 = SDES::ep(bits) ^ key;
-//        println!("xor: {:#b}", xor);
-        let b: u8 = xor & 15;
-        let a: u8 = xor >> 4;
-//        println!("{:#b}, {:#b}", a, b);
-//        println!("soa: {:#b}, sob: {:#b}", SDES::s0(a), SDES::s1(b));
-//        println!("p4: {:#b}", SDES::p4(SDES::s0(a), SDES::s1(b)));
-        SDES::p4(SDES::s0(a), SDES::s1(b))
+        let right: u8 = xor & 15;
+        let left: u8 = xor >> 4;
+        SDES::p4(SDES::s0(left), SDES::s1(right))
     }
 
     fn fk(bits: u8, key: u8) -> u8 {
-        let b: u8 = bits & 15;
-        let a: u8 = bits >> 4;
-//        println!("a: {:#b}, b: {:#b}", a, b);
-        let xor: u8 = a ^ SDES::f(b, key);
-//        println!("fk xor: {:#b}", xor);
-        (xor << 4) | b
+        let right: u8 = bits & 15;
+        let left: u8 = bits >> 4;
+        let xor: u8 = left ^ SDES::f(right, key);
+        (xor << 4) | right
     }
 
     pub fn encrypt(&self, message: &'static str) -> String {
         let (k1, k2) = self.generate_keys();
         let mut cipher: String = String::new();
 
-        println!("k1: {:#b}, k2: {:#b}", k1, k2);
-
         for c in message.chars() {
             let char_byte = c as u8;
-//            println!("{:}, {:}, {:#b}", c, char_byte, char_byte);
             let ip: u8 = SDES::ip(char_byte);
-//            println!("ip: {:#b}", ip);
             let fk1: u8 = SDES::fk(ip, k1);
-//            println!("fk1: {:#b}", fk1);
             let sw: u8 = SDES::sw(fk1);
-//            println!("sw: {:#b}", sw);
             let fk2: u8 = SDES::fk(sw, k2);
-//            println!("fk2: {:#b}", fk2);
             let rip: u8 = SDES::rip(fk2);
-//            println!("rip: {:#b}, char: {:}", rip, rip as char);
             cipher.push(rip as char);
         }
 
@@ -137,9 +128,9 @@ impl SDES {
         for c in cipher.chars() {
             let char_byte: u8 = c as u8;
             let ip: u8 = SDES::ip(char_byte);
-            let fk1: u8 = SDES::fk(ip, k1);
+            let fk1: u8 = SDES::fk(ip, k2);
             let sw: u8 = SDES::sw(fk1);
-            let fk2: u8 = SDES::fk(sw, k2);
+            let fk2: u8 = SDES::fk(sw, k1);
             let rip: u8 = SDES::rip(fk2);
             message.push(rip as char);
         }
