@@ -1,5 +1,3 @@
-This is an implementation of the Simplified Data Encryption Standard in Rust.
-
 It's a school exercise in order to give an idea on how is implemented a cipher algorithm and to understand the main technics.
 
 # How to run it?
