@@ -21,6 +21,7 @@ impl SDES {
         SDES { master_key }
     }
 
+    // permute bits to a given order, the length is a number of bits excluding leading zeros
     fn permute(k: u16, order: Vec<u8>, length: u8) -> u16 {
         let mut result: u16 = 0;
         for i in 0..order.len() {
@@ -38,7 +39,7 @@ impl SDES {
         (first_shift << 5) | second_shift
     }
 
-    // ignore leading zeros by selecting the last 10 bits
+    // left rotate of n bits, & 2^5 in order to ignore leading zeros by selecting the last 10 bits
     fn left_rotate(k: u16, n: u8) -> u16 {
         ((k << n) | (k >> (5 - n))) & (2u16.pow(5) - 1)
     }
@@ -70,19 +71,24 @@ impl SDES {
         SDES::permute(k as u16, vec![3, 0, 1, 2, 1, 2, 3, 0], 4) as u8
     }
 
-    fn s0(k: u8) -> u8 {
-        let r: usize = (((k & (1 << 3)) >> 2) | (k & 1)) as usize;
-        let c: usize = (((k & (1 << 2)) >> 1) | ((k & (1 << 1)) >> 1)) as usize;
+    fn s0(left: u8) -> u8 {
+        // concatenates the first and fourth bit of k to have the row of the s0 box
+        let r: usize = (((left & (1 << 3)) >> 2) | (left & 1)) as usize;
+        // concatenates the second and third bit of k to have the column of the s0 box
+        let c: usize = (((left & (1 << 2)) >> 1) | ((left & (1 << 1)) >> 1)) as usize;
         SDES::S0BOX[r][c]
     }
 
-    fn s1(k: u8) -> u8 {
-        let r: usize = (((k & (1 << 3)) >> 2) | (k & 1)) as usize;
-        let c: usize = (((k & (1 << 2)) >> 1) | ((k & (1 << 1)) >> 1)) as usize;
+    fn s1(right: u8) -> u8 {
+        // concatenates the first and fourth bit of k to have the row of the s1 box
+        let r: usize = (((right & (1 << 3)) >> 2) | (right & 1)) as usize;
+        // concatenates the second and third bit of k to have the column of the s1 box
+        let c: usize = (((right & (1 << 2)) >> 1) | ((right & (1 << 1)) >> 1)) as usize;
         SDES::S1BOX[r][c]
     }
 
     fn p4(left: u8, right: u8) -> u8 {
+        // concatenates right to left
         let k: u8 = (left << 2) | right;
         SDES::permute(k as u16, vec![1, 3, 2, 0], 4) as u8
     }
@@ -102,6 +108,7 @@ impl SDES {
         let right: u8 = bits & 15;
         let left: u8 = bits >> 4;
         let xor: u8 = left ^ SDES::f(right, key);
+        // concatenates right to xor
         (xor << 4) | right
     }
 
