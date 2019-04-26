@@ -32,16 +32,16 @@ impl SDES {
     }
 
     fn circular_left_shift(k: u16, n: u8) -> u16 {
-        let right: u16 = k & (2u16.pow(5) - 1);
+        let right: u16 = k & 31;
         let left: u16 = k >> 5;
         let first_shift: u16 = SDES::left_rotate(left, n);
         let second_shift: u16 = SDES::left_rotate(right, n);
         (first_shift << 5) | second_shift
     }
 
-    // left rotate of n bits, & 2^5 in order to ignore leading zeros by selecting the last 10 bits
+    // left rotate of n bits, & 31 in order to ignore leading zeros by selecting the last 10 bits
     fn left_rotate(k: u16, n: u8) -> u16 {
-        ((k << n) | (k >> (5 - n))) & (2u16.pow(5) - 1)
+        ((k << n) | (k >> (5 - n))) & 31
     }
 
     fn p10(&self) -> u16 {
